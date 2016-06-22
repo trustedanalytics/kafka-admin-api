@@ -1,0 +1,9 @@
+---
+applications:
+- name: kafka-admin-api
+  memory: 512MB
+  instances: 1
+  host: kafka-admin-api
+  path: target/kafka-admin-api-${version}.jar
+  services:
+  - kafka-instance

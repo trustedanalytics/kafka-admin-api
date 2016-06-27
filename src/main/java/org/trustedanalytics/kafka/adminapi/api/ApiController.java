@@ -18,13 +18,10 @@ package org.trustedanalytics.kafka.adminapi.api;
 
 import kafka.common.InvalidTopicException;
 import kafka.common.Topic;
-import kafka.common.TopicExistsException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -32,8 +29,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.bind.annotation.ResponseStatus;
-import org.trustedanalytics.kafka.adminapi.exceptions.BadRequestException;
-import org.trustedanalytics.kafka.adminapi.exceptions.TopicAlreadyExistsException;
 import org.trustedanalytics.kafka.adminapi.model.TopicDescription;
 import org.trustedanalytics.kafka.adminapi.services.KafkaService;
 
@@ -50,10 +45,9 @@ public class ApiController {
 
     @RequestMapping(method = RequestMethod.GET, value = "/topics")
     @ResponseBody
-    public HttpEntity<List<String>> listTopics() {
+    public List<String> listTopics() {
         LOG.info("listTopics invoked.");
-        List<String> list = kafkaService.listTopics();
-        return new ResponseEntity<>(list, HttpStatus.OK);
+        return kafkaService.listTopics();
     }
 
     @RequestMapping(method = RequestMethod.POST, value = "/topics", consumes = "application/json")
@@ -62,21 +56,11 @@ public class ApiController {
         LOG.info("createTopic invoked: {}", topicDescription);
 
         if (StringUtils.isEmpty(topicDescription.getTopic())) {
-            throw new BadRequestException("Missing topic name");
+            throw new InvalidTopicException("Missing mandatory topic name");
         }
-        try {
-            Topic.validate(topicDescription.getTopic());
-        } catch (InvalidTopicException ex) {
-            throw new BadRequestException("Invalid topic name", ex);
-        }
+        Topic.validate(topicDescription.getTopic());
 
-        try {
-
-            kafkaService.createTopic(topicDescription);
-
-        } catch (TopicExistsException ex) {
-            throw new TopicAlreadyExistsException(topicDescription.getTopic(), ex);
-        }
+        kafkaService.createTopic(topicDescription);
     }
 
 }

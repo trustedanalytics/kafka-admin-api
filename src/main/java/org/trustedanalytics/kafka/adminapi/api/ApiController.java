@@ -18,21 +18,25 @@ package org.trustedanalytics.kafka.adminapi.api;
 
 import kafka.common.InvalidTopicException;
 import kafka.common.Topic;
+import kafka.common.UnknownTopicOrPartitionException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Controller;
 import org.springframework.util.StringUtils;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.context.request.async.DeferredResult;
 import org.trustedanalytics.kafka.adminapi.model.TopicDescription;
 import org.trustedanalytics.kafka.adminapi.services.KafkaService;
 
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 @Controller
 @RequestMapping(value = "/api")
@@ -60,7 +64,41 @@ public class ApiController {
         }
         Topic.validate(topicDescription.getTopic());
 
+        if (topicDescription.getPartitions() <= 0) {
+            throw new InvalidTopicException("Number of partitions must be larger than 0");
+        }
+
         kafkaService.createTopic(topicDescription);
+    }
+
+    @RequestMapping(method = RequestMethod.GET, value = "/topics/{topic}")
+    @ResponseBody
+    public DeferredResult<List<String>> readTopic(@PathVariable final String topic) {
+        LOG.info("readTopic invoked: {}", topic);
+
+        if (StringUtils.isEmpty(topic)) {
+            throw new InvalidTopicException("Missing mandatory topic name");
+        }
+        Topic.validate(topic);
+        if (!kafkaService.topicExists(topic)) {
+            throw new UnknownTopicOrPartitionException("Topic does not exist: " + topic);
+        }
+
+        DeferredResult<List<String>> deferredResult = new DeferredResult<>();
+        CompletableFuture.supplyAsync(() -> kafkaService.readTopic(topic))
+                .whenCompleteAsync((result, throwable) -> {
+                    deferredResult.setResult(result);
+                    deferredResult.setErrorResult(throwable);
+                });
+        return deferredResult;
+    }
+
+    @RequestMapping(method = RequestMethod.POST, value = "/topics/{topic}", consumes = "text/plain")
+    @ResponseStatus(HttpStatus.CREATED)
+    public void writeMessage(@PathVariable String topic, @RequestBody String message) {
+        LOG.info("writeMessage invoked: {}, {}", topic, message);
+
+        kafkaService.writeMessage(topic, message);
     }
 
 }

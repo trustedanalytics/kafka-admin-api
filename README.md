@@ -12,14 +12,16 @@ It performs basic operations, like:
 
 * list all available topics
 * create a topic
+* read topic messages
 
 
 ## Configuring the application
 
 The web service uses application.properties or application-cloud.properties to provide configuration data:
 
-|key                                          | description|
-|---                                          |---|
+|key                                          | description                                  |
+|---                                          |---                                           |
+|kafka.brokersUri                             | A list of Kafka brokers                      |
 |kafka.zookeeperUri                           | A list of all zookeeper brokers URI addresses|
 
 
@@ -36,6 +38,8 @@ After deployment to TAP the Kafka Admin API provides the following endpoints:
 |---	                |---     |---	                             |
 |/api/topics   	        |GET     |list the topics   	             |
 |/api/topics   	        |POST    |create a new topic   	             |
+|/api/topics/{name}     |GET     |read topic messages                |
+|/api/topics/{name}     |POST    |write plain text message to a topic|
 
 
 ## Swagger UI
@@ -66,6 +70,7 @@ Notes:
 * Executing any *mvn clean* or *mvn package* will delete or override any changes to manifest.yml respectively.
 * Replacing "kafka-instance" service binding to some other service requires updating **application-cloud.properties**: 
    
+        kafka.brokerUri=${vcap.services.YOUR-KAFKA-INSTANCE.credentials.uri}
         kafka.zookeeperUri=${vcap.services.YOUR-KAFKA-INSTANCE.credentials.zookeeperUri}
 
 
@@ -156,6 +161,16 @@ For testing you can use SwaggerUI or curl.
 * To create a topic with an explicit partitions number use this:
 
     curl -H "Content-Type: application/json" -X POST -d '{"topic":"test_topic_1","partitions":2}' http://kafka-admin-api.{domain.com}/api/topics
+
+* To read topic messages use this:
+
+    curl http://kafka-admin-api.{domain.com}/api/topics/{__TOPIC_NAME__}
+
+    Here you have to provide the domain and TOPIC_NAME.
+
+* To write a message to a topic use this:
+
+    curl -H "Content-Type: text/plain" -X POST -d 'my test message' http://kafka-admin-api.{domain.com}/api/topics
 
 
 ## Future improvements

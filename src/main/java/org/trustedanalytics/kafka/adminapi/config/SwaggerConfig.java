@@ -45,7 +45,7 @@ public class SwaggerConfig {
                 .title("Kafka REST Admin API SwaggerUI")
                 .description("Kafka REST Admin API SwaggerUI")
                 .contact(new Contact("TAP.Ganymede", "", ""))
-                .version("0.1.1")
+                .version("0.2.0")
                 .build();
     }
 }

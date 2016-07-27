@@ -16,20 +16,41 @@
 
 package org.trustedanalytics.kafka.adminapi.config;
 
+import kafka.consumer.Consumer;
+import kafka.consumer.ConsumerConfig;
+import kafka.javaapi.consumer.ConsumerConnector;
 import kafka.utils.ZKStringSerializer$;
 import org.I0Itec.zkclient.ZkClient;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.env.Environment;
+import org.trustedanalytics.kafka.adminapi.kafka.KafkaReader;
+import org.trustedanalytics.kafka.adminapi.kafka.KafkaWriter;
+
+import java.util.Date;
+import java.util.Properties;
+import java.util.Random;
 
 @Configuration
 public class KafkaConfig {
 
+    private static final Logger LOG = LoggerFactory.getLogger(KafkaConfig.class);
+
+    @Autowired
+    private Environment env;
+
     @Value("${kafka.zookeeperUri}")
     private String zookeeperUri;
 
+    @Value("${kafka.brokersUri}")
+    private String brokersUri;
+
     @Bean
-    public ZkClient createZkClient() {
+    public ZkClient zkClient() {
         // below are default values
         final int sessionTimeoutMs = 10 * 1000;
         final int connectionTimeoutMs = 10 * 1000;
@@ -48,4 +69,28 @@ public class KafkaConfig {
                 operationRetryTimeout);
     }
 
+    @Bean(initMethod = "init", destroyMethod = "destroy")
+    public KafkaWriter writer() {
+        return new KafkaWriter(brokersUri);
+    }
+
+    private ConsumerConfig consumerConfig() {
+        // to be able to read topics many times we need to randomize the consumer group name
+        Random rnd = new Random();
+        String consumerGroupId = "" + new Date().getTime() + "_"+ rnd.nextInt(10000);
+
+        Properties props = new Properties();
+        props.put("zookeeper.connect", zookeeperUri);
+        props.put("group.id", consumerGroupId);
+        props.put("consumer.timeout.ms", "1000"); // it will throw ConsumerTimeoutException
+        props.put("auto.offset.reset", "smallest"); // when there is no (valid) offset
+        props.put("zookeeper.session.timeout.ms", "1000");
+        props.put("zookeeper.sync.time.ms", "200");
+        props.put("auto.commit.interval.ms", "1000");
+        return new ConsumerConfig(props);
+    }
+
+    public ConsumerConnector connector() {
+        return Consumer.createJavaConsumerConnector(consumerConfig());
+    }
 }

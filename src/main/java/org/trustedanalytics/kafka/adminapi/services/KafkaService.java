@@ -17,19 +17,24 @@
 package org.trustedanalytics.kafka.adminapi.services;
 
 import kafka.admin.AdminUtils;
+import kafka.consumer.ConsumerConfig;
 import org.I0Itec.zkclient.ZkClient;
 import org.I0Itec.zkclient.exception.ZkInterruptedException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Bean;
 import org.springframework.stereotype.Service;
+import org.trustedanalytics.kafka.adminapi.config.KafkaConfig;
+import org.trustedanalytics.kafka.adminapi.kafka.KafkaReader;
+import org.trustedanalytics.kafka.adminapi.kafka.KafkaWriter;
 import org.trustedanalytics.kafka.adminapi.model.TopicDescription;
 import scala.collection.JavaConverters;
 
 import javax.annotation.PreDestroy;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
-import java.util.Map;
 import java.util.Properties;
 
 @Service
@@ -40,13 +45,18 @@ public class KafkaService {
     @Autowired
     private ZkClient zkClient;
 
+    @Autowired
+    private KafkaWriter writer;
+
+    @Autowired
+    private KafkaConfig config;
+
     public List<String> listTopics() {
         LOG.info("Listing topics");
 
         List<String> resultTopicList = new ArrayList<>();
 
-        java.util.Map<String, Properties> topicsWithConfigs = (Map<String, Properties>) JavaConverters.mapAsJavaMapConverter(
-                AdminUtils.fetchAllTopicConfigs(zkClient)).asJava();
+        java.util.Map<String, Properties> topicsWithConfigs = JavaConverters.mapAsJavaMapConverter(AdminUtils.fetchAllTopicConfigs(zkClient)).asJava();
         LOG.debug("topicsWithConfigs: {}", topicsWithConfigs);
 
         resultTopicList.addAll(topicsWithConfigs.keySet());
@@ -62,6 +72,24 @@ public class KafkaService {
         AdminUtils.createTopic(zkClient, topicDescription.getTopic(), topicDescription.getPartitions(), TopicDescription.DEFAULT_REPLICATION_FACTOR, topicConfig);
 
         LOG.debug("Topic created");
+    }
+
+    public boolean topicExists(String topic) {
+        return AdminUtils.topicExists(zkClient, topic);
+    }
+
+    public List<String> readTopic(String topic) {
+        LOG.info("readTopic: {}", topic);
+        List<String> messages;
+        try (KafkaReader reader = new KafkaReader(config.connector())) {
+            messages = reader.readMessages(topic);
+        }
+        return messages;
+    }
+
+    public void writeMessage(String topic, String message) {
+        LOG.debug("writeMessage to Kafka: topic={}, msg={}", topic, message);
+        writer.writeMessage(topic, message);
     }
 
     @PreDestroy

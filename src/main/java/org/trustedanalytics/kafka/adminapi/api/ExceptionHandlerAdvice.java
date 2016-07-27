@@ -18,6 +18,7 @@ package org.trustedanalytics.kafka.adminapi.api;
 
 import kafka.common.InvalidTopicException;
 import kafka.common.TopicExistsException;
+import kafka.common.UnknownTopicOrPartitionException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -43,7 +44,6 @@ public class ExceptionHandlerAdvice {
         return ex.getMessage();
     }
 
-
     @ExceptionHandler
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     @ResponseBody
@@ -57,6 +57,14 @@ public class ExceptionHandlerAdvice {
     @ResponseBody
     public String handleConflict(TopicExistsException ex) {
         LOG.error("Handling TopicExistsException", ex);
+        return ex.getMessage();
+    }
+
+    @ExceptionHandler
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    @ResponseBody
+    public String handleUnknownTopic(UnknownTopicOrPartitionException ex) {
+        LOG.error("Unknown topic", ex);
         return ex.getMessage();
     }
 
